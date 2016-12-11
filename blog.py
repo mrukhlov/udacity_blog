@@ -169,7 +169,7 @@ class Logout(Handler):
 		self.response.headers.add_header('Set-Cookie', str('username='))
 		self.redirect('/signup')
 
-class Welcome(Handler):
+class Welcome(Handler, Utils):
 
 	def get(self):
 
@@ -230,7 +230,7 @@ class MainPage(Handler):
 	def get(self):
 		self.render_front()
 
-class CreatePost(Handler):
+class CreatePost(Handler, Utils):
 
 	def render_front(self, title='', art='', error=''):
 		self.render('create_post.html', title=title, art=art, error=error)
@@ -262,7 +262,7 @@ class CreatePost(Handler):
 		else:
 			self.redirect('/login')
 
-class EditPost(Handler):
+class EditPost(Handler, Utils):
 
 	def get(self):
 
@@ -346,7 +346,7 @@ class MainRedirect(Handler):
 	def get(self):
 		self.redirect('/welcome')
 
-class AddComment(Handler):
+class AddComment(Handler, Utils):
 
 	def post(self):
 
