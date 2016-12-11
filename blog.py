@@ -14,55 +14,56 @@ from google.appengine.ext import db
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir), autoescape=True)
 
-secret = 'hmac_secret'
+class Utils():
 
-def check_cookie(cookie):
-	if hashlib.sha256(cookie.split('|')[0]).hexdigest() == cookie.split('|')[1]:
-		return True
+	global secret
+	secret = 'hmac_secret'
 
-def check_if_user(request, dbase):
-	username_cookie_str = request.cookies.get('username')
-	q = db.Query(dbase)
-	if username_cookie_str:
-		valid_cookie = check_cookie(username_cookie_str)
-		if valid_cookie:
+	def valid_username(self, username):
+		if username:
+			username_match = re.match("^[a-zA-Z0-9_-]{3,20}$", username)
+			if username_match:
+				return username
+
+
+	def valid_password(self, password):
+		if password:
+			password_match = re.match("^.{3,20}$", password)
+			if password_match:
+				return password
+
+
+	def valid_email(self, email):
+		if email:
+			email_match = re.match("^[\S]+@[\S]+.[\S]+$", email)
+			if email_match:
+				return email
+
+	def make_salt(self):
+		return ''.join(random.choice(string.letters) for x in range(5))
+
+
+	def make_pw_hash(self, name, pw, salt=None):
+		if not salt:
+			salt = self.make_salt()
+		h = hashlib.sha256(name + pw + salt).hexdigest()
+		return '%s|%s' % (h, salt)
+
+
+	def valid_pw(self, name, pw, h):
+		salt = h.split('|')[1]
+		return h == self.make_pw_hash(name, pw, salt)
+
+	def check_cookie(self, cookie):
+		if hashlib.sha256(cookie.split('|')[0]).hexdigest() == cookie.split('|')[1]:
 			return True
 
-
-def valid_username(username):
-	if username:
-		username_match = re.match("^[a-zA-Z0-9_-]{3,20}$", username)
-		if username_match:
-			return username
-
-
-def valid_password(password):
-	if password:
-		password_match = re.match("^.{3,20}$", password)
-		if password_match:
-			return password
-
-
-def valid_email(email):
-	if email:
-		email_match = re.match("^[\S]+@[\S]+.[\S]+$", email)
-		if email_match:
-			return email
-
-def make_salt():
-	return ''.join(random.choice(string.letters) for x in range(5))
-
-
-def make_pw_hash(name, pw, salt=None):
-	if not salt:
-		salt = make_salt()
-	h = hashlib.sha256(name + pw + salt).hexdigest()
-	return '%s|%s' % (h, salt)
-
-
-def valid_pw(name, pw, h):
-	salt = h.split('|')[1]
-	return h == make_pw_hash(name, pw, salt)
+	def check_if_user(self, request, dbase):
+		username_cookie_str = request.cookies.get('username')
+		if username_cookie_str:
+			valid_cookie = self.check_cookie(username_cookie_str)
+			if valid_cookie:
+				return True
 
 class Handler(webapp2.RequestHandler):
 
@@ -83,7 +84,7 @@ class Register(db.Model):
 	password = db.TextProperty(required=True)
 	email = db.TextProperty()
 
-class Signup(Handler):
+class Signup(Handler, Utils):
 
 
 	def get(self):
@@ -93,32 +94,32 @@ class Signup(Handler):
 
 		user_username = self.request.get('username')
 		user_pass = self.request.get('password')
-		passv = self.request.get('verify')
+		user_verify = self.request.get('verify')
 		user_email = self.request.get('email')
 
 		params = dict(username=user_username, email=user_email)
 
-		username = valid_username(user_username)
+		username = self.valid_username(user_username)
 		if not username:
 			params['error_username'] = "Invalid username"
 
-		password = valid_password(user_pass)
+		password = self.valid_password(user_pass)
 		if not password:
 			params['error_pass'] = "Invalid password"
 		else:
-			if passv and password == passv:
-				passv = password
+			if user_verify and password == user_verify:
+				user_verify = password
 			else:
 				params['error_passv'] = "Invalid verification"
 
 		if user_email:
-			email = valid_email(user_email)
+			email = self.valid_email(user_email)
 			if not email:
 				params['error_email'] = "That's not a valid email."
 		else:
 			email = False
 
-		if username and password and passv and (email == False or email):
+		if username and password and user_verify and (email == False or email):
 			q = db.Query(Register)
 			user_entry = q.filter('username =', username).get()
 			if user_entry:
@@ -172,7 +173,7 @@ class Welcome(Handler):
 
 	def get(self):
 
-		valid_user_cookie = check_if_user(self.request, Register)
+		valid_user_cookie = self.check_if_user(self.request, Register)
 		username_cookie_str = self.request.cookies.get('username')
 
 		q = db.Query(Register)
@@ -214,7 +215,15 @@ class MainPage(Handler):
 		posts = Blog.all().order('-created')
 		likes = Likes.all()
 		if username:
-			self.render('index.html', title=title, art=art, error=error, posts=posts, likes=likes, username=username.split('|')[0])
+			self.render(
+				'index.html',
+				title=title,
+				art=art,
+				error=error,
+				posts=posts,
+				likes=likes,
+				username=username.split('|')[0]
+			)
 		else:
 			self.redirect('/signup')
 
@@ -228,26 +237,30 @@ class CreatePost(Handler):
 
 	def get(self):
 
-		valid_user_cookie = check_if_user(self.request, Register)
+		valid_user_cookie = self.check_if_user(self.request, Register)
 		if valid_user_cookie:
 			self.render_front()
 		else:
 			self.redirect('/login')
 
 	def post(self):
-		title = self.request.get('subject')
-		post = self.request.get('content')
-		author = self.request.cookies.get('username')
-		error = ''
+		valid_user_cookie = self.check_if_user(self.request, Register)
+		if valid_user_cookie:
+			title = self.request.get('subject')
+			post = self.request.get('content')
+			author = self.request.cookies.get('username')
+			error = ''
 
-		if title and post:
-			a = Blog(title = title, post = post, author = author.split('|')[0], likes = 0)
-			a.put()
-			id = a.key().id()
-			self.redirect('/blog/'+str(id))
+			if title and post:
+				a = Blog(title = title, post = post, author = author.split('|')[0], likes = 0)
+				a.put()
+				id = a.key().id()
+				self.redirect('/blog/'+str(id))
+			else:
+				error = 'We need both title and blog text!'
+				self.render_front(title, post, error)
 		else:
-			error = 'We need both title and blog text!'
-			self.render_front(title, post, error)
+			self.redirect('/login')
 
 class EditPost(Handler):
 
@@ -255,9 +268,8 @@ class EditPost(Handler):
 
 		post_id = self.request.cookies.get('post_id')
 
-		valid_user_cookie = check_if_user(self.request, Register)
+		valid_user_cookie = self.check_if_user(self.request, Register)
 		if valid_user_cookie:
-			# self.render_front(title, post_text, post_id)
 			post_to_edit = Blog.get_by_id(int(post_id))
 			self.render('edit_post.html', title=post_to_edit.title, post_text=post_to_edit.post, post_id=post_id)
 		else:
@@ -265,31 +277,36 @@ class EditPost(Handler):
 
 	def post(self):
 
-		title = self.request.get('subject')
-		post = self.request.get('content')
+		valid_user_cookie = self.check_if_user(self.request, Register)
+		if valid_user_cookie:
 
-		author = self.request.cookies.get('username')
-		post_id = self.request.cookies.get('post_id')
+			title = self.request.get('subject')
+			post = self.request.get('content')
 
-		post_to_edit = Blog.get_by_id(int(post_id))
-		post_text = post_to_edit.post
+			author = self.request.cookies.get('username')
+			post_id = self.request.cookies.get('post_id')
 
-		error = ''
-
-		if title and post:
 			post_to_edit = Blog.get_by_id(int(post_id))
-			if author == post_to_edit.author:
-				post_to_edit.title = title
-				post_to_edit.post = post
-				post_to_edit.put()
-				self.redirect('/blog/'+str(post_id))
+			post_text = post_to_edit.post
+
+			error = ''
+
+			if title and post:
+				post_to_edit = Blog.get_by_id(int(post_id))
+				if author == post_to_edit.author:
+					post_to_edit.title = title
+					post_to_edit.post = post
+					post_to_edit.put()
+					self.redirect('/blog/'+str(post_id))
+				else:
+					error = 'You must be an author of the post'
+					self.render('edit_post.html', title=title, post_text=post_text, post_id=post_id, error=error)
 			else:
-				error = 'You must be an author of the post'
-				self.render('edit_post.html', title=title, post_text=post_text, post_id=post_id, error=error)
+				error = 'We need both title and blog text!'
+				# self.render_front(title, post, error)
+				self.render('edit_post.html', title=title, post=post, error=error)
 		else:
-			error = 'We need both title and blog text!'
-			# self.render_front(title, post, error)
-			self.render('edit_post.html', title=title, post=post, error=error)
+			self.redirect('/login')
 
 class BlogPage(Handler):
 
@@ -302,12 +319,15 @@ class BlogPage(Handler):
 		remove_error = self.request.get('remove_error')
 		like_error = self.request.get('like_error')
 		like_duplicate = self.request.get('like_duplicate')
+		comment_error = self.request.get('comment_error')
 		if remove_error:
 			params['error_username'] = 'You cannot delete this post'
 		if like_error:
 			params['error_username'] = 'You cannot like your own post'
 		if like_duplicate:
 			params['error_username'] = 'You can like post only once'
+		if comment_error:
+			params['comment_remove_error'] = 'You can only remove your own comments.'
 
 		q = Comments.all()
 		comment_entry = q.filter('post_id =', int(blog_id)).order('-created').fetch(limit=10)
@@ -330,7 +350,7 @@ class AddComment(Handler):
 
 	def post(self):
 
-		valid_user_cookie = check_if_user(self.request, Register)
+		valid_user_cookie = self.check_if_user(self.request, Register)
 		if valid_user_cookie:
 			post_id = self.request.cookies.get('post_id')
 			author = self.request.cookies.get('username').split('|')[0]
@@ -345,17 +365,17 @@ class AddComment(Handler):
 		else:
 			self.redirect('/login')
 
-class RemovePost(Handler):
+class RemovePost(Handler, Utils):
 
 	def post(self):
-		valid_user_cookie = check_if_user(self.request, Register)
+		valid_user_cookie = self.check_if_user(self.request, Register)
 		if valid_user_cookie:
 			user = self.request.cookies.get('username')
 			post_id = self.request.cookies.get('post_id')
 			post_to_delete = Blog.get_by_id(int(post_id))
 			post_key = post_to_delete.key()
 
-			check_user = check_cookie(user)
+			check_user = self.check_cookie(user)
 
 			if check_user and user.split('|')[0] == post_to_delete.author:
 				db.delete(post_key)
@@ -365,11 +385,11 @@ class RemovePost(Handler):
 		else:
 			self.redirect('/login')
 
-class LikePost(Handler):
+class LikePost(Handler, Utils):
 
 	def post(self):
 
-		valid_user_cookie = check_if_user(self.request, Register)
+		valid_user_cookie = self.check_if_user(self.request, Register)
 		if valid_user_cookie:
 
 			user = self.request.cookies.get('username')
@@ -377,7 +397,7 @@ class LikePost(Handler):
 			post_id = int(self.request.cookies.get('post_id'))
 			post_to_like = Blog.get_by_id(int(post_id))
 
-			check_user = check_cookie(user)
+			check_user = self.check_cookie(user)
 			like_check = Likes.all().filter('author =', author).count()
 
 			if check_user and user.split('|')[0] == post_to_like.author:
@@ -397,12 +417,16 @@ class RemoveComment(Handler):
 	def get(self, comment_id):
 
 		post_id = self.request.cookies.get('post_id')
+		user = self.request.cookies.get('username')
 
 		comment_to_delete = Comments.get_by_id(int(comment_id))
-		comment_key = comment_to_delete.key()
-		db.delete(comment_key)
+		if comment_to_delete.author == user.split('|')[0]:
+			comment_key = comment_to_delete.key()
+			db.delete(comment_key)
 
-		self.redirect('/blog/' + str(post_id))
+			self.redirect('/blog/' + str(post_id))
+		else:
+			self.redirect('/blog/' + str(post_id)+'?comment_error=True')
 
 app = webapp2.WSGIApplication([
 	('/', MainRedirect),

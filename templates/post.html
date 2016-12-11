@@ -36,12 +36,15 @@
 	<hr>
 	<h2>Comments</h2>
 	<hr>
+	{% if comment_remove_error %}
+		<p class="bg-danger">{{ comment_remove_error }}</p>
+	{% endif %}
 	{% for i in comments %}
 	<div>
 		<p>{{ i.comment }}</p>
 		<p>
 			By <strong>{{ i.author }}</strong> on {{ i.created.strftime('%H:%M %b %d, %Y') }}
-			{% if post.author == username %}
+			{% if i.author == username %}
 				<a href="/blog/remove_comment/{{ i.key().id() }}" class="close" aria-label="Close"><span aria-hidden="true">&times;</span></a>
 			{% endif %}
 		</p>
