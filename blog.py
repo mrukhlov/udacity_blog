@@ -213,7 +213,10 @@ class MainPage(Handler):
 
 		posts = Blog.all().order('-created')
 		likes = Likes.all()
-		self.render('index.html', title=title, art=art, error=error, posts=posts, likes=likes, username=username.split('|')[0])
+		if username:
+			self.render('index.html', title=title, art=art, error=error, posts=posts, likes=likes, username=username.split('|')[0])
+		else:
+			self.redirect('/signup')
 
 	def get(self):
 		self.render_front()
