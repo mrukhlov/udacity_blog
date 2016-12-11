@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}
+<title>Udacity Blog</title>
+{% endblock %}
+
+{% block content %}
+
+	<h1>{{ post.title }}</h1>
+	<hr>
+	<p>{{ post.post }}</p>
+	<p>{{ likes }} <i class="fa fa-heart-o" aria-hidden="true"></i></p>
+	<p>Posted by <strong>{{ post.author }}</strong> on {{ post.created.strftime('%b %d, %Y') }}</p>
+
+	<form action="">
+		<button type="submit" formaction="/blog/edit_post" formmethod="get" class="btn btn-default">Edit</button>
+		<button type="submit" formaction="/blog/like_post" formmethod="post" class="btn btn-default">Like</button>
+		<button type="submit" formaction="/blog/remove_post" formmethod="post" class="btn btn-danger">Remove</button>
+	</form>
+
+	<br>
+
+    {% if error_username %}
+        <p class="bg-danger">{{ error_username }}</p>
+    {% endif %}
+
+	<form action="/blog/add_comment" method="post" class="form-group">
+		<div class="form-group">
+			<label class="col-sm-3 control-label">Comment</label>
+			<textarea class="form-control" name="comment" cols="80" rows="4"></textarea>
+		</div>
+		<input type="submit" class="btn btn-primary">
+		<a href="/blog" class="btn btn-primary">Back</a>
+		<p class="bg-danger">{{ error }}</p>
+	</form>
+	<hr>
+	<h2>Comments</h2>
+	<hr>
+	{% for i in comments %}
+	<div>
+		<p>{{ i.comment }}</p>
+		<p>
+			By <strong>{{ i.author }}</strong> on {{ i.created.strftime('%H:%M %b %d, %Y') }}
+			{% if post.author == username %}
+				<a href="/blog/remove_comment/{{ i.key().id() }}" class="close" aria-label="Close"><span aria-hidden="true">&times;</span></a>
+			{% endif %}
+		</p>
+	</div>
+	{% endfor %}
+
+{% endblock %}

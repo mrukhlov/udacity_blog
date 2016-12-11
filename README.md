@@ -1,0 +1,1 @@
+This is my multi user blog project site. I tried to reach the specifications for this site: accounts passwords are stored in sha256 format with secret word, only registered accounts can create, like, remove and edit posts. Design is bad, but at least i used bootstrap :)

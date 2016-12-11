@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}
+<title>Udacity Blog</title>
+{% endblock %}
+
+{% block content %}
+
+	<a href="/blog/newpost" class="btn btn-primary">Create post</a>
+	<hr>
+	{% for post in posts %}
+		<div class="blogs">
+			<div class="blog-title"><a href="blog/{{ post.key().id() }}">{{ post.title }}</a></div>
+			<div class="blog-body">Posted by <strong>{{ post.author }}</strong> on {{ post.created.strftime('%b %d, %Y') }}</div>
+			<div class="blog-body">{{ post.post }}</div>
+			<div class="blog-body">{{ likes.filter('post_id =', post.key().id()).count() }} <i class="fa fa-heart-o" aria-hidden="true"></i></div>
+			<hr>
+		</div>
+	{% endfor %}
+	<div>{{ blog_id }}</div>
+	{% if username %}
+		<a href="/logout" class="btn btn-primary">Logout</a>
+	{%  endif %}
+
+{% endblock %}

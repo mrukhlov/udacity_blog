@@ -1,0 +1,21 @@
+body {
+    /*position: relative;*/
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 14px;
+
+    width: 800px;
+    margin: 0 auto;
+    padding: 10px;
+    color: #333;
+    
+    align-content: center;
+}
+
+.error {
+    color: red;
+}
+
+.blog-title {
+    font-size: x-large;
+}
+
