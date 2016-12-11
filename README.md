@@ -9,6 +9,6 @@ Design is bad, but at least i used bootstrap :)
 
 Project is available on: https://udacity-multiblog-project.appspot.com.
 
-Project also can be run locally with `gcloud app deploy` command.
+It also can be run locally with `gcloud app deploy` command.
 
 I also created test account: udacity/udacity for preview and some sample posts.
